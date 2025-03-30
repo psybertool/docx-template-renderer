@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: docx-backend
+    expose:
+      - "5000"
+    networks:
+      - docxnet
+
+  frontend:
+    build: ./frontend
+    container_name: docx-frontend
+    ports:
+      - "8080:80"
+    networks:
+      - docxnet
+
+networks:
+  docxnet:
+    driver: bridge

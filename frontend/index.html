@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>DOCX Template Renderer</title>
+</head>
+<body>
+    <h2>DOCX Template Upload</h2>
+    <form id="uploadForm">
+        <label for="template">Word Template (.docx):</label><br>
+        <input type="file" id="template" name="template" accept=".docx" required><br><br>
+
+        <div id="variableFields"></div>
+
+        <button type="submit" disabled id="submitBtn">Dokument generieren</button>
+    </form>
+
+    <script>
+        const templateInput = document.getElementById("template");
+        const variableFieldsDiv = document.getElementById("variableFields");
+        const submitBtn = document.getElementById("submitBtn");
+
+        templateInput.addEventListener("change", async function () {
+            const file = templateInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append("template", file);
+
+            try {
+                const response = await fetch("/extract", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    alert("Fehler beim Extrahieren der Variablen");
+                    return;
+                }
+
+                const variables = await response.json();
+                variableFieldsDiv.innerHTML = "";
+
+                variables.forEach(varName => {
+                    const label = document.createElement("label");
+                    label.textContent = varName + ":";
+                    const input = document.createElement("input");
+                    input.type = "text";
+                    input.name = varName;
+                    input.required = true;
+                    variableFieldsDiv.appendChild(label);
+                    variableFieldsDiv.appendChild(document.createElement("br"));
+                    variableFieldsDiv.appendChild(input);
+                    variableFieldsDiv.appendChild(document.createElement("br"));
+                });
+
+                submitBtn.disabled = false;
+            } catch (error) {
+                alert("Fehler beim Extrahieren: " + error);
+            }
+        });
+
+        document.getElementById("uploadForm").addEventListener("submit", async function (e) {
+            e.preventDefault();
+
+            const formData = new FormData();
+            const file = templateInput.files[0];
+            if (!file) return;
+            formData.append("template", file);
+
+            const variables = {};
+            Array.from(variableFieldsDiv.querySelectorAll("input")).forEach(input => {
+                variables[input.name] = input.value;
+            });
+            formData.append("variables", JSON.stringify(variables));
+
+            try {
+                const response = await fetch("/render", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    alert("Fehler: " + errorData.error);
+                    return;
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "rendered.docx";
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            } catch (error) {
+                alert("Fehler beim Generieren: " + error);
+            }
+        });
+    </script>
+</body>
+</html>
